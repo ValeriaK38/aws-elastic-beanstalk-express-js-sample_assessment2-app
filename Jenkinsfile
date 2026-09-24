@@ -2,19 +2,25 @@ pipeline {
     agent any
 
     stages {
-        stage('Checkout') {
-            steps {
-                checkout scm
-            }
-        }
-
         stage('Install Dependencies') {
+            agent {
+                docker {
+                    image 'node:16'
+                    reuseNode true
+                }
+            }
             steps {
                 sh 'npm ci'
             }
         }
 
         stage('Security Audit') {
+            agent {
+                docker {
+                    image 'node:16'
+                    reuseNode true
+                }
+            }
             steps {
                 sh 'npm audit --audit-level=high'
             }
