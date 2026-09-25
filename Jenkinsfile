@@ -1,34 +1,46 @@
 pipeline {
     agent any
 
+    environment {
+        IMAGE_NAME = 'lera38lera/assessment2-node-app'
+    }
+
     stages {
-        stage('Install Dependencies') {
-            agent {
-                docker {
-                    image 'node:16'
-                    reuseNode true
-                }
-            }
+        stage('Security Scan') {
             steps {
-                sh 'npm ci'
+                echo 'Running npm audit inside Docker build'
+                sh 'docker build --target security-scan -t assessment2-node-audit:${BUILD_NUMBER} .'
             }
         }
 
-        stage('Security Audit') {
-            agent {
-                docker {
-                    image 'node:16'
-                    reuseNode true
-                }
-            }
+        stage('Docker Image') {
             steps {
-                sh 'npm audit --audit-level=high'
+                echo 'Building application Docker image'
+                sh 'docker build --target app -t ${IMAGE_NAME}:${BUILD_NUMBER} -t ${IMAGE_NAME}:latest .'
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Push Image') {
             steps {
-                sh 'docker build -t lera38lera/assessment2-node-app:${BUILD_NUMBER} -t lera38lera/assessment2-node-app:latest .'
+                echo 'Pushing Docker image to Docker Hub'
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    sh 'echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin'
+                    sh 'docker push ${IMAGE_NAME}:${BUILD_NUMBER}'
+                    sh 'docker push ${IMAGE_NAME}:latest'
+                }
+            }
+        }
+
+        stage('Archive Build Info') {
+            steps {
+                echo 'Creating build information artifact'
+                sh '''
+                    echo "Build Number: ${BUILD_NUMBER}" > build-info.txt
+                    echo "Image Name: ${IMAGE_NAME}" >> build-info.txt
+                    echo "Git Commit: ${GIT_COMMIT}" >> build-info.txt
+                    echo "Docker Hub Repository: lera38lera/assessment2-node-app" >> build-info.txt
+                '''
+                archiveArtifacts artifacts: 'build-info.txt', fingerprint: true
             }
         }
     }
