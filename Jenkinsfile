@@ -22,7 +22,20 @@ pipeline {
                 sh 'npm ci'
             }
         }
-
+        stage('Unit Test') {
+            // Uses Node.js 16 Docker container for the unit test stage.
+            agent {
+                docker {
+                    image 'node:16'
+                    reuseNode true
+                }
+            }
+            steps {
+                // Runs the test script defined in package.json.
+                echo 'Running unit tests using Node 16 Docker agent'
+                sh 'npm test'
+            }
+        }
         stage('Security Scan') {
             // Uses the same Node.js 16 Docker image for the security scan.
             agent {
