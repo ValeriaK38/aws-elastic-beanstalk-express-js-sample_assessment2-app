@@ -30,5 +30,18 @@ pipeline {
                 }
             }
         }
+
+        stage('Archive Build Info') {
+            steps {
+                echo 'Creating build information artifact'
+                sh '''
+                    echo "Build Number: ${BUILD_NUMBER}" > build-info.txt
+                    echo "Image Name: ${IMAGE_NAME}" >> build-info.txt
+                    echo "Git Commit: ${GIT_COMMIT}" >> build-info.txt
+                    echo "Docker Hub Repository: lera38lera/assessment2-node-app" >> build-info.txt
+                '''
+                archiveArtifacts artifacts: 'build-info.txt', fingerprint: true
+            }
+        }
     }
 }
