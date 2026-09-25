@@ -1,27 +1,54 @@
 pipeline {
+    // Runs the pipeline on any available Jenkins agent.
     agent any
 
     environment {
+        // Docker Hub image name used by the pipeline.
         IMAGE_NAME = 'lera38lera/assessment2-node-app'
     }
 
     stages {
-        stage('Security Scan') {
+        stage('Install Dependencies') {
+            // Uses a Node.js 16 Docker container for this stage.
+            agent {
+                docker {
+                    image 'node:16'
+                    reuseNode true
+                }
+            }
             steps {
-                echo 'Running npm audit inside Docker build'
-                sh 'docker build --target security-scan -t assessment2-node-audit:${BUILD_NUMBER} .'
+                // Installs the Node.js dependencies from package-lock.json.
+                echo 'Installing Node.js dependencies using Node 16 Docker agent'
+                sh 'npm ci'
+            }
+        }
+
+        stage('Security Scan') {
+            // Uses the same Node.js 16 Docker image for the security scan.
+            agent {
+                docker {
+                    image 'node:16'
+                    reuseNode true
+                }
+            }
+            steps {
+                // Runs npm audit and fails the build if high or critical issues are found.
+                echo 'Running npm audit using Node 16 Docker agent'
+                sh 'npm audit --audit-level=high'
             }
         }
 
         stage('Docker Image') {
             steps {
-                echo 'Building application Docker image'
-                sh 'docker build --target app -t ${IMAGE_NAME}:${BUILD_NUMBER} -t ${IMAGE_NAME}:latest .'
+                // Builds the application Docker image and tags it with the build number and latest.
+                echo 'Building Docker image'
+                sh 'docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} -t ${IMAGE_NAME}:latest .'
             }
         }
 
         stage('Push Image') {
             steps {
+                // Pushes the Docker image to Docker Hub using Jenkins credentials.
                 echo 'Pushing Docker image to Docker Hub'
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                     sh 'echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin'
@@ -33,6 +60,7 @@ pipeline {
 
         stage('Archive Build Info') {
             steps {
+                // Creates a text file with important build information.
                 echo 'Creating build information artifact'
                 sh '''
                     echo "Build Number: ${BUILD_NUMBER}" > build-info.txt
@@ -40,6 +68,7 @@ pipeline {
                     echo "Git Commit: ${GIT_COMMIT}" >> build-info.txt
                     echo "Docker Hub Repository: lera38lera/assessment2-node-app" >> build-info.txt
                 '''
+                // Saves the build-info.txt file as a Jenkins build artifact.
                 archiveArtifacts artifacts: 'build-info.txt', fingerprint: true
             }
         }
