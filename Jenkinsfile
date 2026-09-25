@@ -2,24 +2,17 @@ pipeline {
     agent any
 
     stages {
-        stage('Build') {
-            steps {
-                echo 'Installing Node.js dependencies'
-                sh 'docker run --rm -v "$PWD":/app -w /app node:16 npm ci'
-            }
-        }
-
         stage('Security Scan') {
             steps {
-                echo 'Running npm audit security scan'
-                sh 'docker run --rm -v "$PWD":/app -w /app node:16 npm audit --audit-level=high'
+                echo 'Running npm audit inside Docker build'
+                sh 'docker build --target security-scan -t assessment2-node-audit:${BUILD_NUMBER} .'
             }
         }
 
         stage('Docker Image') {
             steps {
-                echo 'Building Docker image'
-                sh 'docker build -t assessment2-node-app:${BUILD_NUMBER} .'
+                echo 'Building application Docker image'
+                sh 'docker build --target app -t assessment2-node-app:${BUILD_NUMBER} .'
             }
         }
     }
